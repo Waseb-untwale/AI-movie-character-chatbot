@@ -8,9 +8,55 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [showFineTune, setShowFineTune] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState(null);
+  const [availableVoices, setAvailableVoices] = useState([]);
+  const [voiceGender, setVoiceGender] = useState('female');
   const [personality, setPersonality] = useState(50);
   const [creativity, setCreativity] = useState(50);
   const messagesEndRef = useRef(null);
+  const synth = window.speechSynthesis;
+
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = synth.getVoices().filter(voice => voice);
+      setAvailableVoices(voices);
+      
+      // Find voices for the selected gender
+      const genderVoices = voices.filter(voice => {
+        const voiceName = voice.name.toLowerCase();
+        if (voiceGender === 'female') {
+          return voiceName.includes('female') || voiceName.includes('woman') || voiceName.includes('girl');
+        } else {
+          return voiceName.includes('male') || voiceName.includes('man') || voiceName.includes('boy');
+        }
+      });
+      
+      // Set the appropriate voice
+      if (genderVoices.length > 0) {
+        setSelectedVoice(genderVoices[0]);
+      } else {
+        // If no gender-specific voice is found, try to make an educated guess based on voice name
+        const defaultVoice = voices.find(voice => {
+          const name = voice.name.toLowerCase();
+          return voiceGender === 'female' 
+            ? !name.includes('male') && !name.includes('man') && !name.includes('boy')
+            : !name.includes('female') && !name.includes('woman') && !name.includes('girl');
+        }) || voices[0];
+        setSelectedVoice(defaultVoice);
+      }
+    };
+
+    // Load voices immediately
+    loadVoices();
+
+    // Also set up the event listener for when voices are changed
+    synth.onvoiceschanged = loadVoices;
+
+    // Cleanup
+    return () => {
+      synth.onvoiceschanged = null;
+    };
+  }, [voiceGender]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -19,6 +65,32 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  const handleVoiceGenderChange = (gender) => {
+    setVoiceGender(gender);
+    // Voice will be updated by the useEffect hook
+  };
+
+  const speak = (text) => {
+    // Cancel any ongoing speech
+    synth.cancel();
+
+    if (voiceEnabled && selectedVoice) {
+      // Create a new utterance
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Set the voice
+      utterance.voice = selectedVoice;
+      
+      // Adjust speech parameters for better clarity
+      utterance.rate = 1.0;  // Normal speed
+      utterance.pitch = voiceGender === 'female' ? 1.2 : 0.9; // Slightly higher pitch for female, lower for male
+      utterance.volume = 1.0; // Full volume
+      
+      // Speak the text
+      synth.speak(utterance);
+    }
+  };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -55,10 +127,8 @@ function App() {
       };
       setMessages((prev) => [...prev, characterMessage]);
 
-      if (voiceEnabled) {
-        const utterance = new SpeechSynthesisUtterance(data.response);
-        speechSynthesis.speak(utterance);
-      }
+      // Use the new speak function
+      speak(data.response);
     } catch (error) {
       console.error('Error:', error);
       const errorMessage = { 
@@ -93,7 +163,12 @@ function App() {
                 <Sliders className="w-5 h-5 text-yellow-500" />
               </button>
               <button
-                onClick={() => setVoiceEnabled(!voiceEnabled)}
+                onClick={() => {
+                  setVoiceEnabled(!voiceEnabled);
+                  if (voiceEnabled) {
+                    synth.cancel(); // Stop any ongoing speech when disabling
+                  }
+                }}
                 className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
                 title="Toggle voice"
               >
@@ -139,6 +214,49 @@ function App() {
                     <span>Creative</span>
                   </div>
                 </div>
+                {voiceEnabled && (
+                  <>
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">Voice Gender</label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleVoiceGenderChange('female')}
+                          className={`flex-1 p-2 rounded-lg border transition-colors ${
+                            voiceGender === 'female'
+                              ? 'bg-yellow-500 text-gray-900 border-yellow-500'
+                              : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
+                          }`}
+                        >
+                          Female
+                        </button>
+                        <button
+                          onClick={() => handleVoiceGenderChange('male')}
+                          className={`flex-1 p-2 rounded-lg border transition-colors ${
+                            voiceGender === 'male'
+                              ? 'bg-yellow-500 text-gray-900 border-yellow-500'
+                              : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
+                          }`}
+                        >
+                          Male
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">Advanced Voice Selection</label>
+                      <select
+                        value={selectedVoice ? availableVoices.indexOf(selectedVoice) : ""}
+                        onChange={(e) => setSelectedVoice(availableVoices[e.target.value])}
+                        className="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 text-white"
+                      >
+                        {availableVoices.map((voice, index) => (
+                          <option key={index} value={index}>
+                            {voice.name} ({voice.lang})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -221,3 +339,5 @@ function App() {
 }
 
 export default App;
+
+
