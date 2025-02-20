@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageCircle, Brain, Sparkles, Zap } from 'lucide-react';
+import { MessageCircle, Brain, Sparkles, Zap ,Clapperboard} from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function Home() {
@@ -11,7 +11,7 @@ function Home() {
         <div className="container mx-auto px-4 py-24 relative z-20">
           <div className="text-center max-w-4xl mx-auto">
             <div className="flex items-center justify-center mb-8">
-              <MessageCircle className="w-20 h-20 text-yellow-500" />
+              <Clapperboard className="w-20 h-20 text-yellow-500" />
             </div>
             <h1 className="text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-500 to-red-500 mb-8">
               Talk to Your Character
